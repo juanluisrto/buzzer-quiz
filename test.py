@@ -44,6 +44,29 @@ class BuzzController():
 		self.d.open(0x054c,0x1000)
 		self.d.set_nonblocking(1)
 
+	def blink_all(self,interval,totaltime):
+		totaltime = totaltime / 2
+		for _ in range( int( totaltime // interval) ):
+			for i in range(4):
+				self.lamps[i] = ON_state
+			self.flush_leds()
+			time.sleep(interval)
+			for i in range(4):
+				self.lamps[i] = OFF_state
+			time.sleep(interval)
+		for i in range(4):
+				self.lamps[i] = OFF_state
+
+	def blink_player(self,player,interval,totaltime):
+		totaltime = totaltime / 2
+		for _ in range( int( totaltime // interval) ):
+			self.lamps[player] = ON_state
+			self.flush_leds()
+			time.sleep(interval)
+			self.lamps[player] = OFF_state
+			time.sleep(interval)
+		self.lamps[player] = OFF_state
+
 	def read_translate(self):
 		data = self.d.read(6) 
 		if data == []: 
@@ -113,8 +136,10 @@ def QuestionEngine():
 	def ask_question(self):
 		question,answers,correct = question_list.pop()
 		print question
+		time.sleep(0.5)
 		for a in answers:
 			print a
+			time.sleep(0.1)
 		return answers, correct
 
 
@@ -128,14 +153,17 @@ NumberofQuestions = 10
 for _ in range(NumberofQuestions):
 
 	answers, correct = qe.ask_question()
-
+	time.sleep(0.2)
 	player, answer = bc.read_traslate()
 	bc.turn_on(player)
+	time.sleep(2) # Give time to other player to answer
+	print 'Time Elapsed'
 	while True:
 		if answers[ dict_colors[answer] ] == correct:
 			print 'Correct answer to player %i' % (player +1)
 			break
 		else:
+			bc.turn_on(player)
 			try:
 				player, answer = bc.read_traslate()
 			except TypeError:
