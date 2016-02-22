@@ -54,8 +54,6 @@ class BuzzController():
 			for i in range(4):
 				self.lamps[i] = OFF_state
 			time.sleep(interval)
-		for i in range(4):
-				self.lamps[i] = OFF_state
 
 	def blink_player(self,player,interval,totaltime):
 		totaltime = totaltime / 2
@@ -65,7 +63,18 @@ class BuzzController():
 			time.sleep(interval)
 			self.lamps[player] = OFF_state
 			time.sleep(interval)
-		self.lamps[player] = OFF_state
+
+	def blink_list(self,player_list,interval,totaltime):
+		totaltime = totaltime / 2
+		for _ in range( int( totaltime // interval) ):
+			for i in player_list:
+				self.lamps[i] = ON_state
+			self.flush_leds()
+			time.sleep(interval)
+			for i in player_list:
+				self.lamps[i] = OFF_state
+			time.sleep(interval)
+
 
 	def read_translate(self):
 		data = self.d.read(6) 
@@ -136,49 +145,162 @@ def QuestionEngine():
 	def ask_question(self):
 		question,answers,correct = question_list.pop()
 		print question
-		time.sleep(0.5)
+		time.sleep(1)
 		for a in answers:
 			print a
 			time.sleep(0.1)
 		return answers, correct
 
+def ScoreBoard():
+	def __init__(self):
+		self.scores = [0,0,0,0]
 
+	def get_scores(self):
+		return self.scores
+
+	def give(self, player, points):
+		self.scores[player] += points
+
+	def winner(self):
+		return self.scores.index(max(self.scores))
+
+
+
+
+################     MAIN     ############
+
+
+# Create instances of the main objects
 bc = BuzzController()
 qe = QuestionEngine('inputfile.txt')
+sb = ScoreBoard()
+
+# Print a nice looking Welcome Message TODO
 print 'Welcome Mesage'
-dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3}
+# Helper dictionary for the order of answers
+dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3, 'red':None}
 
-NumberofQuestions = 10
+# Change this number to play more questions
+NUMBER_OF_QUESTIONS = 30
 
-for _ in range(NumberofQuestions):
+# repeat the main game for every question
+for _ in range(NUMBER_OF_QUESTIONS):
 
+	# Asks and print the question and possibilities
 	answers, correct = qe.ask_question()
-	time.sleep(0.2)
-	player, answer = bc.read_traslate()
-	bc.turn_on(player)
-	time.sleep(2) # Give time to other player to answer
-	print 'Time Elapsed'
-	while True:
-		if answers[ dict_colors[answer] ] == correct:
-			print 'Correct answer to player %i' % (player +1)
-			break
-		else:
-			bc.turn_on(player)
-			try:
-				player, answer = bc.read_traslate()
-			except TypeError:
-				pass
+	# initialize a list that keeps track of the player that have alreay answered
+	already = []
+	# The first who answers gets a penalty if he is wrong and a bonus if he is right so I keep this flag on until I check it
+	firstplayer_flag = True
+	# This flag turns on if the fastest player press red. If nobody answers correctly he takes 4 points otherwise loses 4
+	challenge_flag = False
+	#Wait a minimum time before allowing answering
+	time.sleep(0.5)
+	#Flush away bullshit pressed before it was allowed
+	[bc.read_traslate() for _ in xrange(100)]
+	# Be ready to answer, lights are on!!!
+	for i in range(4):
+		bc.turn_on(i)
 
+	#Wait for the first player to answer (ccarefull this is potentially infinite loop)
+	# notice that pressing the red button is accepted (so red button is considered a Challange....)
+	while True:
+		try:
+			player, answer = bc.read_traslate()
+			break
+		except TypeError:
+			pass
+
+	# COUNTDOWN !!!!!
+	# The player who answered keeps is light on, the others blink
+	# They have 2 seconds to give an answer
+	bc.turn_on(player)
+	the_others = list(set(range(4))-set([player]))
+	bc.blink_list(the_others,0.1,2)
+
+	#Turn off all the lights
+	print 'Time Elapsed'
+	print 'The games are done'
+	#After this point answers cannot be given and everything is saved in a record
+	event_record = [bc.read_traslate() for _ in range(100)]
+	# and the lights are turned off to make the point
 	for i in range(4):
 		bc.turn_off(i)
+	
+
+	# Search until you don't find the first that answer correctly
+	while True:
+		
+		bc.blink_all(0.1,1) # Just to make this nicer and slower make a second of blinking per event considered until the first correct
+		if (answers[ dict_colors[answer] ] == correct) and (player not in already):
+			# if the answer of the currently considered player is correct 
+			# AND this is his first observed attempt for that player
+			bc.blink_player(player,0.1,3) # First to answer found and blinks for 3 sec
+			print 'The fasters to answer correct is player %i' % (player +1)
+
+			# Points are added 3 if it was the first player, 2 if it was the fastest player
+			if firstplayer_flag:
+				sb.give(player, 3)
+			else:
+				sb.give(player, 2)
+
+			already.append(player)
+
+			# explore the event record for other players who answered correct and give 1 point
+			for E in event_record:
+				try:
+					player, answer = E
+					if (answers[ dict_colors[answer] ] == correct) and (player not in already):
+						sb.give(player, 1)
+						already.append(player)
+					else:
+						already.append(player)
+				except TypeError:
+					#  this error raises for a release button event
+					pass
+				except ValueError:
+					#  this error raises when an empty list is in the event_record
+					pass
+
+			# finaly break the while
+			break
+		else:
+			# if the answer of the currently considered player is wrong 
+
+			if firstplayer_flag:
+				sb.give(player, -1)
+
+			# This is set false for all the player but the first
+			give_penalty_flag = False 
+
+			already.append(player)
+
+			try:
+				# consider the next event
+				player, answer = event_record.pop()
+			except TypeError:
+				#  this error raises for a release button event 
+				pass
+			except ValueError:
+				#  this error raises when an empty list is in the event_record
+				pass
+			except IndexError:
+				# pop returns this error when the element are finished
+				print 'Nobody answered correctly'
+				break
 
 	bc.reset_stream()
 
 
+print 'The game is finished'
+print 'Scores are :' + ', '.get_scores(map(str, sb.scores()))
+print 'The winner is player %i' % sb.winner()
 
 
 
 
+
+'''
 [bc.read_traslate() for i in range(100)]
 
 
@@ -215,3 +337,4 @@ for i in range(100):
 	d.write([0x00,0x00,lamps[0],lamps[1],lamps[2],lamps[3],0x0,0x0])
 
 d.close()
+'''
