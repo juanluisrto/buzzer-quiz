@@ -24,14 +24,9 @@ class BuzzController():
 		ON_state = 0xFF
 		OFF_state = 0x00
 		self.lamps = [OFF_state,OFF_state,OFF_state,OFF_state]
-		self.buttons = [ {'red':0, 'yellow':0, 'green':0, 'orange':0, 'blue':0},\
-		{'red':0, 'yellow':0, 'green':0, 'orange':0, 'blue':0},\
-		{'red':0, 'yellow':0, 'green':0, 'orange':0, 'blue':0},\
-		{'red':0, 'yellow':0, 'green':0, 'orange':0, 'blue':0}]
 
 	def flush_leds(self):
 		self.d.write([0x00,0x00,self.lamps[0],self.lamps[1],self.lamps[2],self.lamps[3],0x0,0x0])
-
 
 	def turn_on(self, led_number):
 		self.lamps[led_number] = ON_state
@@ -48,9 +43,6 @@ class BuzzController():
 		self.d.close()
 		self.d.open(0x054c,0x1000)
 		self.d.set_nonblocking(1)
-
-	def read_first(self):
-		command, lifting = self.read(6), self.read(6)
 
 	def read_translate(self):
 		data = self.d.read(6) 
@@ -96,6 +88,70 @@ class BuzzController():
 			return (3,'orange')
 		elif data[4] & 8:
 			return (3,'blue')
+		else:
+			return 'release'
+
+def QuestionEngine():
+	def __init__(self,inputfile):
+		lines = open(inputfile).read()
+		question_list = []
+		for l in lines:
+			if '>' in l:
+				question = l[1:]
+				answers = []
+				correct = 'None'
+			elif '-' == l[0]:
+				answers.append( l[1:] )
+			elif '+' ==l[0]:
+				answers.append( l[1:] )
+				correct = l[1:]
+			elif '=' ==l[0]:
+				question_list.append([question,answers,correct])
+
+		random.shuffle( question_list )
+
+	def ask_question(self):
+		question,answers,correct = question_list.pop()
+		print question
+		for a in answers:
+			print a
+		return answers, correct
+
+
+bc = BuzzController()
+qe = QuestionEngine('inputfile.txt')
+print 'Welcome Mesage'
+
+NumberofQuestions = 10
+
+for _ in range(NumberofQuestions)
+
+	answers, correct = qe.ask_question()
+
+	player, answer = bc.read_traslate()
+
+	bc.turn_on(player)
+
+	dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3}
+
+	while True:
+		if answers[ dict_colors[answer] ] == correct:
+			print 'Correct answer to player %i' % (player +1)
+			break
+		else:
+			try:
+				player, answer = bc.read_traslate()
+			except:
+				pass
+
+	for i in range(4):
+		bc.turn_off(i)
+
+	bc.reset_stream()
+
+
+
+
 
 
 [bc.read_traslate() for i in range(100)]
