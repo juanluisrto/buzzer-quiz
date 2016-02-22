@@ -89,7 +89,7 @@ class BuzzController():
 		elif data[4] & 8:
 			return (3,'blue')
 		else:
-			return 'release'
+			return None
 
 def QuestionEngine():
 	def __init__(self,inputfile):
@@ -121,19 +121,16 @@ def QuestionEngine():
 bc = BuzzController()
 qe = QuestionEngine('inputfile.txt')
 print 'Welcome Mesage'
+dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3}
 
 NumberofQuestions = 10
 
-for _ in range(NumberofQuestions)
+for _ in range(NumberofQuestions):
 
 	answers, correct = qe.ask_question()
 
 	player, answer = bc.read_traslate()
-
 	bc.turn_on(player)
-
-	dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3}
-
 	while True:
 		if answers[ dict_colors[answer] ] == correct:
 			print 'Correct answer to player %i' % (player +1)
@@ -141,7 +138,7 @@ for _ in range(NumberofQuestions)
 		else:
 			try:
 				player, answer = bc.read_traslate()
-			except:
+			except TypeError:
 				pass
 
 	for i in range(4):
