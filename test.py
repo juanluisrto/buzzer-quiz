@@ -93,7 +93,7 @@ class BuzzController():
 
 def QuestionEngine():
 	def __init__(self,inputfile):
-		lines = open(inputfile).read()
+		lines = open(inputfile).read().split('\n')
 		question_list = []
 		for l in lines:
 			if '>' in l:
