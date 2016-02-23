@@ -21,19 +21,19 @@ class BuzzController():
 		self.d = hid.device(0x054c,0x1000)
 		self.d.open(0x054c,0x1000)
 		self.d.set_nonblocking(1)
-		ON_state = 0xFF
-		OFF_state = 0x00
-		self.lamps = [OFF_state,OFF_state,OFF_state,OFF_state]
+		self.ON_state = 0xFF
+		self.OFF_state = 0x00
+		self.lamps = [self.OFF_state,self.OFF_state,self.OFF_state,self.OFF_state]
 
 	def flush_leds(self):
 		self.d.write([0x00,0x00,self.lamps[0],self.lamps[1],self.lamps[2],self.lamps[3],0x0,0x0])
 
 	def turn_on(self, led_number):
-		self.lamps[led_number] = ON_state
+		self.lamps[led_number] = self.ON_state
 		self.flush_leds()
 
 	def turn_off(self, led_number):
-		self.lamps[led_number] = OFF_state
+		self.lamps[led_number] = self.OFF_state
 		self.flush_leds()
 
 	def close_stream(self):
@@ -44,35 +44,38 @@ class BuzzController():
 		self.d.open(0x054c,0x1000)
 		self.d.set_nonblocking(1)
 
-	def blink_all(self,interval,totaltime):
-		totaltime = totaltime / 2
-		for _ in range( int( totaltime // interval) ):
+	def blink_all(self,interval,times):
+		#totaltime = totaltime / 2
+		for _ in range( times):
 			for i in range(4):
-				self.lamps[i] = ON_state
+				self.lamps[i] = self.ON_state
 			self.flush_leds()
 			time.sleep(interval)
 			for i in range(4):
-				self.lamps[i] = OFF_state
+				self.lamps[i] = self.OFF_state
+			self.flush_leds()
 			time.sleep(interval)
 
-	def blink_player(self,player,interval,totaltime):
-		totaltime = totaltime / 2
-		for _ in range( int( totaltime // interval) ):
-			self.lamps[player] = ON_state
+	def blink_player(self,player,interval,times):
+		#totaltime = totaltime / 2
+		for _ in range( times):
+			self.lamps[player] = self.ON_state
 			self.flush_leds()
 			time.sleep(interval)
-			self.lamps[player] = OFF_state
+			self.lamps[player] = self.OFF_state
 			time.sleep(interval)
+			self.flush_leds()
 
-	def blink_list(self,player_list,interval,totaltime):
-		totaltime = totaltime / 2
-		for _ in range( int( totaltime // interval) ):
+	def blink_list(self,player_list,interval,times):
+		#totaltime = totaltime / 2
+		for _ in range( times):
 			for i in player_list:
-				self.lamps[i] = ON_state
+				self.lamps[i] = self.ON_state
 			self.flush_leds()
 			time.sleep(interval)
 			for i in player_list:
-				self.lamps[i] = OFF_state
+				self.lamps[i] = self.OFF_state
+			self.flush_leds()
 			time.sleep(interval)
 
 
@@ -123,10 +126,11 @@ class BuzzController():
 		else:
 			return None
 
-def QuestionEngine():
+class QuestionEngine():
 	def __init__(self,inputfile):
 		lines = open(inputfile).read().split('\n')
-		question_list = []
+		self.question_list = []
+		#answers = []
 		for l in lines:
 			if '>' in l:
 				question = l[1:]
@@ -138,25 +142,28 @@ def QuestionEngine():
 				answers.append( l[1:] )
 				correct = l[1:]
 			elif '=' ==l[0]:
-				question_list.append([question,answers,correct])
+				if len(answers) != 4:
+					for z in range(4 - len(answers)):
+						answers.append('')
+				self.question_list.append([question,answers,correct])
 
-		random.shuffle( question_list )
+		random.shuffle( self.question_list )
 
 	def ask_question(self):
-		question,answers,correct = question_list.pop()
-		print question
-		time.sleep(1)
+		question,answers,correct = self.question_list.pop()
+		print question + '\n'
+		time.sleep(2.5)
 		for a in answers:
-			print a
-			time.sleep(0.1)
+			print ' - ' + a + '\n'
+			time.sleep(0.3)
 		return answers, correct
 
-def ScoreBoard():
+class ScoreBoard():
 	def __init__(self):
 		self.scores = [0,0,0,0]
 
 	def get_scores(self):
-		return self.scores
+		return tuple( self.scores )
 
 	def give(self, player, points):
 		self.scores[player] += points
@@ -176,18 +183,17 @@ qe = QuestionEngine('inputfile.txt')
 sb = ScoreBoard()
 
 # Print a nice looking Welcome Message TODO
-print 'Welcome Mesage'
+print '\n\n\nWelcome To the game for Chema!!!\n\n authored by Giole and Juan Luis\n and yes we are the best\n'
 # Helper dictionary for the order of answers
 dict_colors = {'blue':0,'orange':1,'green':2, 'yellow':3, 'red':None}
 
 # Change this number to play more questions
-NUMBER_OF_QUESTIONS = 30
+NUMBER_OF_QUESTIONS = 26
 
 # repeat the main game for every question
 for _ in range(NUMBER_OF_QUESTIONS):
 
-	# Asks and print the question and possibilities
-	answers, correct = qe.ask_question()
+	
 	# initialize a list that keeps track of the player that have alreay answered
 	already = []
 	# The first who answers gets a penalty if he is wrong and a bonus if he is right so I keep this flag on until I check it
@@ -197,16 +203,32 @@ for _ in range(NUMBER_OF_QUESTIONS):
 	#Wait a minimum time before allowing answering
 	time.sleep(0.5)
 	#Flush away bullshit pressed before it was allowed
-	[bc.read_traslate() for _ in xrange(100)]
-	# Be ready to answer, lights are on!!!
+	[bc.read_translate() for _ in xrange(100)]
+
 	for i in range(4):
-		bc.turn_on(i)
+		bc.turn_off(i)
+	print '\nGet ready press the red button. Now!\n'
+	ready = [False,False,False,False]
+	while not (ready[0] and ready[1] and ready[2] and ready[3]):
+		try:
+			player, answer = bc.read_translate()
+			if answer == 'red':
+				ready[player] = True
+				bc.turn_on(player)
+		except TypeError:
+			pass
+
+	[bc.read_translate() for _ in xrange(100)]
+	# Be ready to answer, lights are on!!!
+	
+	# Asks and print the question and possibilities
+	answers, correct = qe.ask_question()	
 
 	#Wait for the first player to answer (ccarefull this is potentially infinite loop)
 	# notice that pressing the red button is accepted (so red button is considered a Challange....)
 	while True:
 		try:
-			player, answer = bc.read_traslate()
+			player, answer = bc.read_translate()
 			break
 		except TypeError:
 			pass
@@ -216,33 +238,38 @@ for _ in range(NUMBER_OF_QUESTIONS):
 	# They have 2 seconds to give an answer
 	bc.turn_on(player)
 	the_others = list(set(range(4))-set([player]))
-	bc.blink_list(the_others,0.1,2)
+	bc.blink_list(the_others,0.1,20)
 
 	#Turn off all the lights
-	print 'Time Elapsed'
-	print 'The games are done'
+	print 'Time Elapsed!!!!!!!\n'
+	print 'The games are done!!! Stop pressing is uselless!!\n'
 	#After this point answers cannot be given and everything is saved in a record
-	event_record = [bc.read_traslate() for _ in range(100)]
+	event_record = [bc.read_translate() for _ in range(30)]
 	# and the lights are turned off to make the point
 	for i in range(4):
 		bc.turn_off(i)
+	time.sleep(3)
 	
 
 	# Search until you don't find the first that answer correctly
 	while True:
 		
-		bc.blink_all(0.1,1) # Just to make this nicer and slower make a second of blinking per event considered until the first correct
+		bc.blink_all(0.03,2) # Just to make this nicer and slower make a second of blinking per event considered until the first correct
 		if (answers[ dict_colors[answer] ] == correct) and (player not in already):
 			# if the answer of the currently considered player is correct 
 			# AND this is his first observed attempt for that player
-			bc.blink_player(player,0.1,3) # First to answer found and blinks for 3 sec
-			print 'The fasters to answer correct is player %i' % (player +1)
-
+			bc.blink_player(player,0.1,10) # First to answer found and blinks for 3 sec
+			print 'The correct answer was:'
+			print '%s\n' % correct
+			print 'The faster to answer correct is player %i\n' % (player +1)
+			bc.turn_on(player)
 			# Points are added 3 if it was the first player, 2 if it was the fastest player
 			if firstplayer_flag:
 				sb.give(player, 3)
+				print 'Player %i wins 3 points' %  (player +1)
 			else:
 				sb.give(player, 2)
+				print 'Player %i wins 2 points' %  (player +1)
 
 			already.append(player)
 
@@ -252,6 +279,9 @@ for _ in range(NUMBER_OF_QUESTIONS):
 					player, answer = E
 					if (answers[ dict_colors[answer] ] == correct) and (player not in already):
 						sb.give(player, 1)
+						print 'But also the slow player %i get it right! 1 point' %  (player +1)
+						bc.blink_player(player,0.1,10)
+						bc.turn_on(player)
 						already.append(player)
 					else:
 						already.append(player)
@@ -261,17 +291,18 @@ for _ in range(NUMBER_OF_QUESTIONS):
 				except ValueError:
 					#  this error raises when an empty list is in the event_record
 					pass
-
+			print 'The score is Player1: %i   Player2: %i   Player3: %i   Player4: %i\n' % sb.get_scores()
 			# finaly break the while
+			time.sleep(3)
 			break
 		else:
 			# if the answer of the currently considered player is wrong 
 
-			if firstplayer_flag:
+			if firstplayer_flag and (player not in already):
 				sb.give(player, -1)
 
 			# This is set false for all the player but the first
-			give_penalty_flag = False 
+			firstplayer_flag = False 
 
 			already.append(player)
 
@@ -286,15 +317,16 @@ for _ in range(NUMBER_OF_QUESTIONS):
 				pass
 			except IndexError:
 				# pop returns this error when the element are finished
-				print 'Nobody answered correctly'
+				print '\nNobody answered correctly!!!!!!!! Looosers!!!!!\n'
 				break
 
 	bc.reset_stream()
 
 
-print 'The game is finished'
-print 'Scores are :' + ', '.get_scores(map(str, sb.scores()))
-print 'The winner is player %i' % sb.winner()
+print 'The game is finished. Stop crying for more!!!!\n\n'
+time.sleep(2)
+print 'The score is Player1: %i   Player2: %i   Player3: %i   Player4: %i' % sb.get_scores()
+print 'The winner is player %i' % (sb.winner() +1)
 
 
 
